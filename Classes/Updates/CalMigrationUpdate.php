@@ -705,7 +705,13 @@ class CalMigrationUpdate extends AbstractUpdate implements ChattyInterface, Logg
 
         $event['calendarize'] = $this->addValueToCsv($event['calendarize'], $configurationId);
 
-        return $this->updateEvent($event['uid'], $event, $dbQueries, $customMessages);
+        if ($event['uid'] == 0) {
+            $this->logger->debug("In addConfigurationIdToEvent but event[uid] is 0. eventImportId: $eventImportId configurationId: $configurationId event-array: ".print_r($event,true));
+            $this->output->writeln("eventImportId: $eventImportId has no event (uid is 0)");
+        }
+        else {
+            return $this->updateEvent($event['uid'], $event, $dbQueries, $customMessages);
+        }
     }
 
     /**
@@ -737,6 +743,11 @@ class CalMigrationUpdate extends AbstractUpdate implements ChattyInterface, Logg
                 $q->expr()->eq('uid', $q->createNamedParameter((int)$eventId, \PDO::PARAM_INT))
             );
         foreach ($variables['values'] as $key => $value) {
+            // @todo check this
+            if (gettype($key) !== 'string') {
+                $this->logger->debug('IN calmigration updateEvent: key is no string on eventid ' . $eventId . ' : ' . $key . ' / ' . print_r($value,true));
+                continue;
+            }
             $q->set($key, $value);
         }
 
@@ -792,7 +803,8 @@ class CalMigrationUpdate extends AbstractUpdate implements ChattyInterface, Logg
     {
         $event = $this->findEventByImportId($eventImportId, $dbQueries, $customMessages);
 
-        if (!$event) {
+        // @todo check this
+        if (!$event or !array_key_exists('calendarize', $event)) {
             return false;
         }
 
@@ -877,7 +889,7 @@ class CalMigrationUpdate extends AbstractUpdate implements ChattyInterface, Logg
                     'frequency' => $this->mapFrequency($selectResult['freq']),
                     'till_date' => (string)$selectResult['until'] ?: null,
                     'counter_amount' => (int)$selectResult['cnt'],
-                    'counter_interval' => (int)$selectResult['interval'],
+                    'counter_interval' => (int)$selectResult['intrval'],
                     'import_id' => self::IMPORT_PREFIX . $selectResult['uid'],
                     'recurrence' => $this->mapRecurrence($selectResult['byday']),
                     'day' => $this->mapRecurrenceDay($selectResult['byday']),
@@ -1198,7 +1210,7 @@ class CalMigrationUpdate extends AbstractUpdate implements ChattyInterface, Logg
             'frequency' => $this->mapFrequency($calEventRow['freq']),
             'till_date' => (string)$calEventRow['until'] ?: null,
             'counter_amount' => (int)$calEventRow['cnt'],
-            'counter_interval' => (int)($calEventRow['interval'] ?? 1),
+            'counter_interval' => (int)($calEventRow['intrval'] ?? 1),
             'recurrence' => $this->mapRecurrence($calEventRow['byday']),
             'day' => $this->mapRecurrenceDay($calEventRow['byday']),
         ];

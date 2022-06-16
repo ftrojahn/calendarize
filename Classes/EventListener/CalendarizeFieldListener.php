@@ -24,7 +24,7 @@ class CalendarizeFieldListener
         $sql = [];
         foreach (Register::getRegister() as $configuration) {
             $fieldName = $configuration['fieldName'] ?? 'calendarize';
-            $sql[] = 'CREATE TABLE ' . $configuration['tableName'] . ' (' . $fieldName . ' tinytext);';
+            $sql[] = 'CREATE TABLE ' . $configuration['tableName'] . ' (' . $fieldName . ' mediumtext);';
         }
 
         return implode(LF, $sql);
