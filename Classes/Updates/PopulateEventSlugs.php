@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace HDNET\Calendarize\Updates;
 
 use HDNET\Calendarize\Service\IndexerService;
+use Verdigado\Multisite\Querybuilder\PagesQuerybuilder;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\DataHandling\Model\RecordStateFactory;
@@ -12,8 +15,10 @@ use TYPO3\CMS\Core\DataHandling\SlugHelper;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Install\Updates\DatabaseUpdatedPrerequisite;
 
-class PopulateEventSlugs extends AbstractUpdate
+class PopulateEventSlugs extends AbstractUpdate implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     protected $title = 'Introduce URL parts ("slugs") to calendarize event model';
 
     protected $description = 'Updates slug field of EXT:calendarize event records and runs a reindex';
@@ -34,11 +39,23 @@ class PopulateEventSlugs extends AbstractUpdate
     protected $indexerService;
 
     /**
-     * PupulateEventSlugs constructor.
+     * @var int
+     */
+    protected $siteIds = array();
+
+    /**
+     * @var Log
+     */
+    protected $log = null;
+
+    /**
+    /**
+     * PopulateEventSlugs constructor.
      */
     public function __construct()
     {
         $this->indexerService = GeneralUtility::makeInstance(IndexerService::class);
+        $this->initializeSiteIds();
     }
 
     public function getIdentifier(): string
@@ -48,10 +65,40 @@ class PopulateEventSlugs extends AbstractUpdate
 
     public function executeUpdate(): bool
     {
-        $this->populateSlugs($this->table, $this->fieldName);
-        $this->indexerService->reindexAll();
-
+        $this->output->writeln(
+            'Start populating event slugs (sites: ' . count($this->siteIds) . ') ...'
+        );
+        foreach ($this->siteIds as $siteid) {
+            $this->populateSlugs($this->table, $this->fieldName, $siteid);
+            $this->indexerService->reindexAll();
+        }
+        $this->output->writeln(
+            'Stop populating event slugs (empty slugs left: ' . $this->checkEmptySlug($this->table, $this->fieldName) . ').'
+        );
         return true;
+    }
+
+    /**
+     * get all site ids
+     *
+     */
+    public function initializeSiteIds(): void
+    {
+        $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('pages');
+        $queryBuilder = $connection->createQueryBuilder();
+        $statement = $queryBuilder
+            ->select('uid','title')
+            ->from('pages')
+            ->where(
+                $queryBuilder->expr()->andX(
+                    $queryBuilder->expr()->eq('is_siteroot', $queryBuilder->createNamedParameter('1')),
+                    $queryBuilder->expr()->eq('deleted', $queryBuilder->createNamedParameter('0'))
+                )
+            )
+            ->execute();
+        while ($record = $statement->fetch()) {
+            $this->siteIds[] = (int)$record['uid'];
+        }
     }
 
     /**
@@ -60,7 +107,7 @@ class PopulateEventSlugs extends AbstractUpdate
      * @param string $table
      * @param string $field
      */
-    public function populateSlugs(string $table, string $field): void
+    public function populateSlugs(string $table, string $field, int $siteid): void
     {
         $connection = GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable($table);
         $queryBuilder = $connection->createQueryBuilder();
@@ -72,11 +119,13 @@ class PopulateEventSlugs extends AbstractUpdate
                 $queryBuilder->expr()->orX(
                     $queryBuilder->expr()->eq($field, $queryBuilder->createNamedParameter('')),
                     $queryBuilder->expr()->isNull($field)
-                )
+                ),
+                $queryBuilder->expr()->eq('rootpid', $queryBuilder->createNamedParameter($siteid, \PDO::PARAM_INT)),
             )
             ->execute();
 
         $fieldConfig = $GLOBALS['TCA'][$table]['columns'][$field]['config'];
+        // @todo: uniq using rootpid?
         $evalInfo = !empty($fieldConfig['eval']) ? GeneralUtility::trimExplode(',', $fieldConfig['eval'], true) : [];
         $hasToBeUnique = \in_array('unique', $evalInfo, true);
         $hasToBeUniqueInSite = \in_array('uniqueInSite', $evalInfo, true);
@@ -114,9 +163,9 @@ class PopulateEventSlugs extends AbstractUpdate
      * @param string $table
      * @param string $field
      *
-     * @return bool
+     * @return int
      */
-    protected function checkEmptySlug(string $table, string $field): bool
+    protected function checkEmptySlug(string $table, string $field): int
     {
         $connectionPool = GeneralUtility::makeInstance(ConnectionPool::class);
         $queryBuilder = $connectionPool->getQueryBuilderForTable($table);
@@ -134,12 +183,12 @@ class PopulateEventSlugs extends AbstractUpdate
             ->execute()
             ->fetchColumn();
 
-        return $numberOfEntries > 0;
+        return $numberOfEntries;
     }
 
     public function updateNecessary(): bool
     {
-        return $this->checkEmptySlug($this->table, $this->fieldName);
+        return $this->checkEmptySlug($this->table, $this->fieldName) > 0;
     }
 
     /**

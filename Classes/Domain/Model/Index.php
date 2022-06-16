@@ -118,6 +118,14 @@ class Index extends AbstractModel
     protected $slug = '';
 
     /**
+     * rootpid for ext:multisite.
+     *
+     * @var int
+     * @DatabaseField(sql="int(11)")
+     */
+    protected $rootpid;
+
+    /**
      * Get the original record for the current index.
      *
      * @return AbstractEntity

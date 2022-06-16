@@ -63,6 +63,11 @@ $custom = [
         ],
         'typeicon_column' => 'type',
         'formattedLabel_userFunc' => TcaService::class . '->configurationTitle',
+        'extensions' => [
+            'multisite' => [
+                'enabled' => true,
+            ]
+        ],
     ],
     'columns' => [
         'type' => [

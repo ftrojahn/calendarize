@@ -18,3 +18,9 @@ if (!(bool)\HDNET\Calendarize\Utility\ConfigurationUtility::get('disableDefaultE
         ]
     );
 }
+
+$GLOBALS['TCA']['tx_calendarize_domain_model_event']['columns']['categories']['config']['foreign_table_where'] = ''
+    . ' AND sys_category.sys_language_uid IN (-1, 0) '
+    // Configuration EXT:multisite begin
+    . HDNET\Calendarize\TCA\Rootpid::AndWhere('sys_category');
+    // Configuration EXT:multisite end;

@@ -197,6 +197,14 @@ class Configuration extends AbstractModel implements ConfigurationInterface
     protected $hidden = false;
 
     /**
+     * rootpid for ext:multisite.
+     *
+     * @var int
+     * @DatabaseField(sql="int(11)")
+     */
+    protected $rootpid;
+
+    /**
      * Configuration constructor.
      */
     public function __construct()

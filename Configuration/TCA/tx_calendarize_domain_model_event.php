@@ -18,6 +18,11 @@ $custom = [
         'searchFields' => 'uid,title,description',
         'thumbnail' => 'images',
         'label_userFunc' => TcaService::class . '->eventTitle',
+        'extensions' => [
+            'multisite' => [
+                'enabled' => true,
+            ]
+        ],
     ],
     'columns' => [
         'title' => [

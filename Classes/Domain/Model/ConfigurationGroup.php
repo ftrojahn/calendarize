@@ -45,6 +45,14 @@ class ConfigurationGroup extends AbstractModel
     protected $hidden = false;
 
     /**
+     * rootpid for ext:multisite.
+     *
+     * @var int
+     * @DatabaseField(sql="int(11)")
+     */
+    protected $rootpid;
+
+    /**
      * Get title.
      *
      * @return string

@@ -130,6 +130,14 @@ class Event extends AbstractModel implements FeedInterface, SpeakingUrlInterface
     protected $hidden = false;
 
     /**
+     * rootpid for ext:multisite.
+     *
+     * @var int
+     * @DatabaseField(sql="int(11)")
+     */
+    protected $rootpid;
+
+    /**
      * Build up the object.
      */
     public function __construct()
